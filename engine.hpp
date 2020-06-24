@@ -16,13 +16,21 @@ public:
         m_colors = new olc::Sprite(width,height);
         m_png_loaded = false;
 	}
+    Maze_Generator(std::string filename,bool save_states = false,int node_width = 1,int node_height = 1,int wall_width = 1,int border = 1,int pixel_width = 1,int pixel_height = 1) :m_save_states(save_states), m_node_width(node_width), m_node_height(node_height), m_wall_width(wall_width),m_border(border),m_pixel_width(pixel_width),m_pixel_height(pixel_height)
+    {
+
+		sAppName = "Maze generator";
+        m_maze = new Maze(1,1,save_states);
+        m_colors = new olc::Sprite(1,1);
+        m_png_loaded = false;
+        load_png(filename);
+    }
+
 
 public:
 	bool OnUserCreate() override
 	{
-        index_state = 0;
-        c_x=0;
-        c_y=0;
+        m_index_state = 0;
 		return true;
 	}
 
@@ -35,14 +43,14 @@ public:
         return true;
 	}
 
-    void generate()
+    void generate(bool color_search = false)
     {
         int width = m_maze->get_width();
         int height = m_maze->get_height();
         m_true_width = 2 * m_border + width * (m_node_width + m_wall_width) -  m_wall_width;
         m_true_height = 2 * m_border + height * (m_node_height + m_wall_width) - m_wall_width;
         Construct(m_true_width,m_true_height, m_pixel_width, m_pixel_height);
-        m_maze->generate();
+        m_maze->generate(Coord(0,0),color_search,convert_sprite_pixels(*m_colors));
         if(m_save_states)
             m_states = m_maze->get_states();
     }
@@ -52,7 +60,7 @@ public:
     {
         m_colors = new olc::Sprite(filename);
         m_png_loaded = true;
-        if(set_dimension)
+        if(m_colors->width!=0 && m_colors->height!=0 && set_dimension)
         {
             int width = m_colors->width;
             int height = m_colors->height;
@@ -80,11 +88,7 @@ private:
     olc::Sprite* m_colors;
     bool m_png_loaded;
     int m_true_width,m_true_height;
-
-
-    //Debug variables
-    int c_x,c_y;
-    int index_state;
+    int m_index_state;
 
 
 
@@ -95,6 +99,12 @@ private:
         display_nodes();
     }
 
+    void display_states()
+    {
+        display_state(m_states[m_index_state]);
+        if(m_index_state<m_states.size()-1)
+            m_index_state++;
+    }
     void display_state(State state)
     {
         for(int i = 0;i<m_maze->get_height();i++)
@@ -169,7 +179,6 @@ private:
 
     }
 
-
     void draw_node(int x,int y,olc::Pixel p = olc::WHITE)
     {
         int true_x = m_border+x*(m_node_width+m_wall_width);
@@ -211,65 +220,21 @@ private:
         FillRect(true_x,true_y,m_wall_width,m_node_height,p);
     }
 
-    void draw_node_neighbors(int x, int y,olc::Pixel p = olc::GREEN)
+    //Convert a Sprite into a vector of Pixel_Maze, it's used in order to generate the maze depending on the colors of the sprite
+    std::vector<Pixel_Maze> convert_sprite_pixels(olc::Sprite const& sprite)
     {
-        std::vector<Coord> neighbors = m_maze->get_valid_neighbors(Coord(x,y));
-        for(const auto& c : neighbors)
-            draw_node(c.x,c.y,p);
-    }
-
-    //Debug methods
-    void neighbors_test()
-    {
-        Clear(olc::BLACK);
-        draw_node(c_x,c_y);
-        draw_node_neighbors(c_x,c_y);
-        if(GetKey(olc::UP).bPressed)
+        std::vector<Pixel_Maze> colors = std::vector<Pixel_Maze>();
+        for(int i = 0;i<sprite.height;i++)
         {
-            c_y--;
-            if(c_y<0)
-                c_y = m_maze->get_height() - 1;
+            for(int j = 0;j<sprite.width;j++)
+            {
+                olc::Pixel p = sprite.GetPixel(j,i);
+                colors.push_back(Pixel_Maze(p.r,p.g,p.b));
+            }
         }
 
-        if(GetKey(olc::DOWN).bPressed)
-        {
-            c_y++;
-            if(c_y>m_maze->get_height()-1)
-                c_y = 0;
-        }
-
-        if(GetKey(olc::LEFT).bPressed)
-        {
-            c_x--;
-            if(c_x<0)
-                c_x = m_maze->get_width() - 1;
-        }
-
-        if(GetKey(olc::RIGHT).bPressed)
-        {
-            c_x++;
-            if(c_x>m_maze->get_width() - 1)
-                c_x = 0;
-        }
+        return colors;
     }
-    void display_states()
-    {
-        display_state(m_states[index_state]);
-        if(index_state<m_states.size()-1 /*&& (GetKey(olc::SPACE).bPressed || GetKey(olc::SPACE).bHeld)*/)
-            index_state++;
-    }
-    void draw_all_walls()
-    {
-        for(int i = 0;i<m_maze->get_height();i++)
-            for(int j = 0;j<m_maze->get_width()-1;j++)
-                draw_wallV(j,i);
-
-        for(int i = 0;i<m_maze->get_height()-1;i++)
-            for(int j = 0;j<m_maze->get_width();j++)
-                draw_wallH(j,i);
-
-    }
-
 };
 
 
